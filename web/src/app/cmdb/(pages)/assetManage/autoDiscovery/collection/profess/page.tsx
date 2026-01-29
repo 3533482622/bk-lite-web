@@ -31,6 +31,7 @@ import {
   Card,
   Tooltip,
 } from 'antd';
+import { CopyOutlined } from '@ant-design/icons';
 import {
   getExecStatusConfig,
   EXEC_STATUS,
@@ -57,7 +58,7 @@ interface PluginCardProps {
 const ProfessionalCollection: React.FC = () => {
   const { t } = useTranslation();
   const collectApi = useCollectApi();
-  const { editingId, setEditingId } = useAssetManageStore();
+  const { editingId, setEditingId, setCopyTaskData } = useAssetManageStore();
   const syncStatusConfig = React.useMemo(() => getExecStatusConfig(t), [t]);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [categoryList, setCategoryList] = useState<TreeNode[]>([]);
@@ -325,10 +326,29 @@ const ProfessionalCollection: React.FC = () => {
     setDocDrawerVisible(true);
   };
 
-  const handleEdit = (record: CollectTask) => {
+  const handleEdit = useCallback((record: CollectTask) => {
     setEditingId(record.id);
     setDrawerVisible(true);
-  };
+  }, [setEditingId, setDrawerVisible]);
+
+  const handleCopy = useCallback(async (record: CollectTask) => {
+    try {
+      // 获取任务详情
+      const taskDetail = await collectApi.getCollectDetail(record.id.toString());
+      
+      // 存储到copyTaskData
+      setCopyTaskData(taskDetail);
+      
+      // 清除编辑ID，确保打开的是创建表单
+      setEditingId(null);
+      
+      // 打开抽屉
+      setDrawerVisible(true);
+    } catch (error) {
+      console.error('Failed to fetch task details for copy:', error);
+      message.error(t('Collection.copyTaskFailed'));
+    }
+  }, [collectApi, setCopyTaskData, setEditingId, setDrawerVisible, t]);
 
   const handleDelete = (record: CollectTask) => {
     Modal.confirm({
@@ -460,6 +480,11 @@ const ProfessionalCollection: React.FC = () => {
     setCurrentColumns(ordered);
   };
 
+  const handleViewDetail = useCallback((record: CollectTask) => {
+    setCurrentTask(record);
+    setDetailVisible(true);
+  }, [setCurrentTask, setDetailVisible]);
+
   const actionRender = useCallback(
     (record: CollectTask) => {
       const loadingExec = executingTaskIds.includes(record.id);
@@ -506,24 +531,38 @@ const ProfessionalCollection: React.FC = () => {
             >
               {t('Collection.table.modify')}
             </Button>
-          </PermissionWrapper>
-          <PermissionWrapper
-            requiredPermissions={['Delete']}
-            instPermissions={record.permission}
-          >
-            <Button
-              type="link"
-              size="small"
-              disabled={executing}
-              onClick={() => handleDelete(record)}
-            >
-              {t('Collection.table.delete')}
-            </Button>
-          </PermissionWrapper>
+           </PermissionWrapper>
+           <PermissionWrapper
+             requiredPermissions={['Add']}
+             instPermissions={record.permission}
+           >
+             <Button
+               type="link"
+               size="small"
+               disabled={executing}
+               onClick={() => handleCopy(record)}
+               icon={<CopyOutlined />}
+             >
+               {t('Collection.table.copy')}
+             </Button>
+           </PermissionWrapper>
+           <PermissionWrapper
+             requiredPermissions={['Delete']}
+             instPermissions={record.permission}
+           >
+             <Button
+               type="link"
+               size="small"
+               disabled={executing}
+               onClick={() => handleDelete(record)}
+             >
+               {t('Collection.table.delete')}
+             </Button>
+           </PermissionWrapper>
         </div>
       );
     },
-    [executingTaskIds, t]
+    [executingTaskIds, t, handleCopy, handleViewDetail, handleEdit]
   );
 
   const getColumns = useCallback(
@@ -637,17 +676,12 @@ const ProfessionalCollection: React.FC = () => {
         dataIndex: 'action',
         key: 'action',
         fixed: 'right',
-        width: 260,
+        width: 320,
         render: (_, record) => actionRender(record),
       },
     ],
     [t, actionRender]
   );
-
-  const handleViewDetail = (record: CollectTask) => {
-    setCurrentTask(record);
-    setDetailVisible(true);
-  };
 
   const getItems = (node: TreeNode) => {
     if (node.children?.[0]?.type) {

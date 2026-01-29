@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Form, message } from 'antd';
 import { useTranslation } from '@/utils/i18n';
 import { useCollectApi } from '@/app/cmdb/api';
-import { CYCLE_OPTIONS } from '@/app/cmdb/constants/professCollection';
+import { CYCLE_OPTIONS, PASSWORD_PLACEHOLDER } from '@/app/cmdb/constants/professCollection';
 import dayjs from 'dayjs';
 import { useAssetManageStore } from '@/app/cmdb/store';
 
@@ -26,6 +26,61 @@ export const useTaskForm = ({
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const { copyTaskData, setCopyTaskData } = useAssetManageStore();
+
+  const initFormFromCopyData = (copyData: any) => {
+    // Exclude system fields
+    const systemFields = ['id', 'created_at', 'updated_at', 'created_by', 'exec_status', 'exec_time', 'message'];
+    const filteredData = Object.keys(copyData).reduce((acc, key) => {
+      if (!systemFields.includes(key)) {
+        acc[key] = copyData[key];
+      }
+      return acc;
+    }, {} as any);
+
+    // Add suffix to task name
+    const taskName = filteredData.name ? `${filteredData.name} - 副本` : '';
+    
+    // Handle cycle field conversion
+    const cycleType = filteredData.cycle_value_type || CYCLE_OPTIONS.ONCE;
+    const cycleValue = filteredData.cycle_value;
+    
+    // Spread all credential fields to handle all task types (SNMP, VM, Cloud, etc.)
+    const credentialFields = filteredData.credential || {};
+    
+    // Set form values with all fields
+    form.setFieldsValue({
+      ...filteredData,
+      taskName,
+      instId: filteredData.instances?.[0]?._id,
+      cycle: cycleType,
+      accessPointId: filteredData.access_point?.[0]?.id,
+      organization: filteredData.team || [],
+      ipRange: filteredData.ip_range?.split('-') || [],
+      // Spread all credential fields
+      ...credentialFields,
+      // Replace sensitive values with placeholder
+      ...(credentialFields.password && { password: PASSWORD_PLACEHOLDER }),
+      ...(credentialFields.community && { community: PASSWORD_PLACEHOLDER }),
+      ...(credentialFields.authkey && { authkey: PASSWORD_PLACEHOLDER }),
+      ...(credentialFields.privkey && { privkey: PASSWORD_PLACEHOLDER }),
+      ...(credentialFields.accessKey && { accessKey: PASSWORD_PLACEHOLDER }),
+      ...(credentialFields.accessSecret && { accessSecret: PASSWORD_PLACEHOLDER }),
+      // Cycle fields
+      ...(cycleType === CYCLE_OPTIONS.DAILY && {
+        dailyTime: dayjs(cycleValue, 'HH:mm'),
+      }),
+      ...(cycleType === CYCLE_OPTIONS.INTERVAL && {
+        intervalValue: Number(cycleValue),
+        everyHours: Number(cycleValue),
+      }),
+      // Advanced timeout field
+      timeout: filteredData.timeout || 600,
+    });
+
+    // Clear copyTaskData after use
+    setCopyTaskData(null);
+  };
 
   const formatCycleValue = (values: any) => {
     const { cycle } = values;
@@ -101,6 +156,13 @@ export const useTaskForm = ({
     }
   };
 
+  // Handle copyTaskData initialization
+  useEffect(() => {
+    if (!editId && copyTaskData) {
+      initFormFromCopyData(copyTaskData);
+    }
+  }, [copyTaskData, editId]);
+
   return {
     form,
     loading,
@@ -108,5 +170,6 @@ export const useTaskForm = ({
     fetchTaskDetail,
     onFinish,
     formatCycleValue,
+    initFormFromCopyData,
   };
 };
