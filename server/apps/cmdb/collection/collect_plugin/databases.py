@@ -68,6 +68,12 @@ class DBCollectCollectMetrics(CollectBase):
                 "max_conn": "max_conn",
                 "max_mem": "max_mem",
                 "database_role": "database_role",
+                "redis_topology_mode": "redis_topology_mode",
+                "redis_cluster_uuid": "redis_cluster_uuid",
+                "master_group_list": "master_group_list",
+                "master_group_name": "master_group_name",
+                "slave_set": "slave_set",
+                "master_ref": "master_ref",
             },
             "mongodb": {
                 "inst_name": self.get_inst_name,

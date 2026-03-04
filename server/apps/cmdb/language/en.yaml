@@ -365,6 +365,12 @@ ATTR:
     max_conn: MAX Connect
     collect_time: Last Updated Time
     install_path: Bin Path
+    redis_topology_mode: Topology Mode
+    redis_cluster_uuid: Cluster UUID
+    master_group_list: Master Group List
+    master_group_name: Master Group Name
+    slave_set: Slave Set
+    master_ref: Master Ref
   mongodb:
     inst_name: Name
     organization: Organization
